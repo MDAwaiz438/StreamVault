@@ -27,6 +27,21 @@
   </style>
 </head>
 <body>
+  <script>
+    // ADVANCED ANTI-BOT FINGERPRINTING
+    window.API_KEY_PAYLOAD = 'vidsrc-secure-key-2026'; // Default correct key
+    
+    // Check for Playwright / Puppeteer / Selenium signatures
+    const isBot = navigator.webdriver || 
+                  !!window.cdc_adoQpoasnfa76pfcZLmcfl_Array || 
+                  (navigator.languages && navigator.languages.length === 0);
+
+    if (isBot) {
+      console.warn("Automated scraper detected.");
+      // Corrupt the API key. Scraper will fetch but get 401 Unauthorized.
+      window.API_KEY_PAYLOAD = 'corrupted-bot-key'; 
+    }
+  </script>
   <div id="player">
     <h2>Concurrent Multi-Server Stream Tester</h2>
     <p>Type any TMDB ID. The player will fetch all 3 servers at once and instantly play the fastest one. Click on a Green tab to switch servers!</p>
@@ -252,7 +267,7 @@
           if (advOneServer) apiUrl += `&advOneServer=true`;
         }
         
-        fetch(apiUrl, { headers: { 'x-api-key': 'vidsrc-secure-key-2026' } })
+        fetch(apiUrl, { headers: { 'x-api-key': window.API_KEY_PAYLOAD } })
           .then(res => res.json().then(data => ({ status: res.status, ok: res.ok, data })))
           .then(({ ok, data }) => {
             const tab = document.getElementById(`tab-${server}`);

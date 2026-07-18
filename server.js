@@ -47,6 +47,21 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false // Allow cross-origin media
 }));
 
+// Security: Anti-Bot Middleware
+function botBlocker(req, res, next) {
+  const ua = req.headers['user-agent'] || '';
+  const isBot = /HeadlessChrome|PhantomJS|Puppeteer|Selenium|Playwright|curl|wget|bot|spider|scraper/i.test(ua);
+  
+  // Real browsers almost always send Accept-Language (bots often don't)
+  const hasLanguage = !!req.headers['accept-language'];
+  
+  if (isBot || !hasLanguage) {
+    console.warn(`[SECURITY] Bot detected and blocked (IP: ${req.ip}, UA: ${ua})`);
+    return res.status(403).json({ error: 'Access Denied: Automated scraping detected' });
+  }
+  next();
+}
+
 // Security: API Key Firewall Middleware
 function requireApiKey(req, res, next) {
   const providedKey = req.headers['x-api-key'] || req.query.apiKey;
@@ -83,7 +98,7 @@ function cleanCache() {
   }
 }
 
-app.get('/api/extract', requireApiKey, async (req, res) => {
+app.get('/api/extract', botBlocker, requireApiKey, async (req, res) => {
   // 4. Anti-Hotlinking: Strict Referer Check
   const referer = req.headers.referer || req.headers.origin;
   if (!referer || (!referer.includes('localhost:3000') && !referer.includes('127.0.0.1:3000'))) {
@@ -136,7 +151,7 @@ app.get('/api/extract', requireApiKey, async (req, res) => {
   }
 });
 
-app.get('/proxy', requireApiKey, async (req, res) => {
+app.get('/proxy', botBlocker, requireApiKey, async (req, res) => {
   let url = req.query.url;
   if(!url) return res.status(400).send('missing url');
   if (url.startsWith('http%3A') || url.startsWith('https%3A')) {
