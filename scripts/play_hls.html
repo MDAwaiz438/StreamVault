@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Play HLS</title>
+  <style>body{display:flex;height:100vh;margin:0;align-items:center;justify-content:center;background:#111}video{width:100%;max-width:1200px;height:auto;}</style>
+</head>
+<body>
+  <video id="video" controls autoplay></video>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js"></script>
+  <script>
+    const url = "https://throbbing.hydrastreaming.lat/hls/MTx74NDM3Na4Ab5Nm6c6l5w6HRd7x7a4l5e8L29i2Nr102Lm6Zi2w6XNo8x7r15f9ZXQe8w6n7o8p9ZW8f9y8TN1OD9q0y8WQ9w6n7o8p9ZW9Qy8GF5ZXJDZG4n7ZXs2d7z9XJo8x7a40c6Na4t30NDM3MTp93Mq0E4Jm6Nb5Y0o8d7PTIc6Nb54c6ODEf9ODp9f9OTt3n7x7HI9MTAn7x73Jq0QWx79Q0s2ST01FX0FORFJPSUQn7Y2t39MTMd7Nq0Qc6Ma4U3MCZg0x7a405NS4c6NDIf9Mq0A2Lq0Ea4Mb5Z0v5XBo8PTIn7x72o8m6PVRDUp9ZYYq0s2IVGVFJn7N0PTt3n7w6XJh1x7a40c6Na4Yf9MTEb5Lq0E3Mr14c6Nr1Ua4Qq0E4NS4b5Mq0Yf9NTUf9Ma4t3n7Y2c6k4ZW50VHo8d7ZT0d7Jm6k4a4PTQa4Jn7o8p9PTEb5MTE5MDQb5Mq0p92Ma4Yc6.m3u8";
+    const video = document.getElementById('video');
+    if(Hls.isSupported()){
+      const hls = new Hls({maxBufferLength:30});
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, function() { video.play().catch(()=>{}); });
+    }else if(video.canPlayType('application/vnd.apple.mpegurl')){
+      video.src = url;
+      video.addEventListener('loadedmetadata',()=>video.play().catch(()=>{}));
+    }else{
+      document.body.innerHTML = '<p style="color:#fff">Your browser does not support HLS playback.</p>';
+    }
+  </script>
+</body>
+</html>

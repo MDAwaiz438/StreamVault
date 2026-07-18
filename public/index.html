@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Local Stream Tester</title>
+  <style>
+    body { background: #111; color: #eee; padding: 20px; font-family: sans-serif; }
+    #player { max-width: 900px; margin: 0 auto; }
+    .btn-group { display: flex; gap: 10px; margin: 15px 0; }
+    input { padding: 10px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; }
+    button { padding: 10px 15px; background: #6c63ff; color: #fff; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+    button:hover { background: #5a52d5; }
+    button:disabled { background: #444; cursor: not-allowed; }
+    .tabs { display: flex; gap: 10px; margin-top: 15px; }
+    .tab { 
+      flex: 1; padding: 12px; background: #333; color: #fff; text-align: center; 
+      border-radius: 4px; cursor: pointer; font-weight: bold; border: 2px solid transparent; 
+      transition: all 0.2s ease;
+    }
+    .tab.loading { border-color: #f39c12; color: #f39c12; }
+    .tab.ready { border-color: #4caf50; color: #4caf50; }
+    .tab.failed { border-color: #f44336; color: #f44336; cursor: not-allowed; opacity: 0.6; }
+    .tab.active { background: #4caf50; color: #fff; }
+    video, iframe { width: 100%; height: 500px; background: #000; border-radius: 8px; margin-top: 15px; border: none; }
+    #status { margin: 10px 0; font-weight: bold; color: #ffeb3b; }
+  </style>
+</head>
+<body>
+  <div id="player">
+    <h2>Concurrent Multi-Server Stream Tester</h2>
+    <p>Type any TMDB ID. The player will fetch all 3 servers at once and instantly play the fastest one. Click on a Green tab to switch servers!</p>
+    
+    <div class="btn-group" style="flex-wrap: wrap;">
+      <select id="mediaType" style="padding: 10px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; width: 120px;">
+        <option value="movie">Movie</option>
+        <option value="tv">TV Series</option>
+      </select>
+      <input id="tmdbId" style="flex:1; min-width: 200px;" placeholder="Enter TMDB ID (e.g. 533535 for Deadpool)" />
+      
+      <div id="tvInputs" style="display: none; gap: 10px;">
+        <input id="season" type="number" min="1" placeholder="Season" style="width: 80px;" />
+        <input id="episode" type="number" min="1" placeholder="Episode" style="width: 80px;" />
+      </div>
+      
+      <button id="extractAndPlay">Fetch All Servers</button>
+    </div>
+
+    <!-- Advanced Nxsha Settings -->
+    <div style="margin-top: 15px; padding: 15px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px;">
+      <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; color: #aaa;">Advanced Nxsha Testing</h3>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <select id="advServer" style="padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; flex: 1; min-width: 150px;">
+          <option value="">Default Server</option>
+          <option value="MbPly-[Multi-Lang]">MbPly-[Multi-Lang]</option>
+          <option value="ZetPly">ZetPly</option>
+          <option value="OrVid">OrVid</option>
+        </select>
+        
+        <select id="advLang" style="padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; flex: 1; min-width: 150px;">
+          <option value="">Default Language</option>
+          <option value="en">English (en)</option>
+          <option value="hi">Hindi (hi)</option>
+          <option value="es">Spanish (es)</option>
+          <option value="fr">French (fr)</option>
+        </select>
+        
+        <select id="advSub" style="padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; flex: 1; min-width: 150px;">
+          <option value="">No Subtitles</option>
+          <option value="en">English Subtitles (en)</option>
+          <option value="hi">Hindi Subtitles (hi)</option>
+        </select>
+        
+        <label style="display: flex; align-items: center; gap: 5px; color: #fff; cursor: pointer;">
+          <input type="checkbox" id="advOneServer" />
+          Strict One-Server Lock
+        </label>
+      </div>
+    </div>
+
+    <div id="tabs" class="tabs">
+      <div class="tab" id="tab-vidsrc" onclick="switchServer('vidsrc')" data-server="vidsrc">Server 1 (VidSrc) <span class="loader"></span></div>
+      <div class="tab" id="tab-vidsrc2" onclick="switchServer('vidsrc2')" data-server="vidsrc2">Server 2 (VidSrc SBS) <span class="loader"></span></div>
+      <div class="tab" id="tab-vidlink" onclick="switchServer('vidlink')" data-server="vidlink">Server 3 (VidLink) <span class="loader"></span></div>
+      <div class="tab" id="tab-nxsha" onclick="switchServer('nxsha')" data-server="nxsha">Server 4 (Nxsha) <span class="loader"></span></div>
+      <div class="tab" id="tab-fmovies" onclick="switchServer('fmovies')" data-server="fmovies">Server 5 (Fmovies) <span class="loader"></span></div>
+    </div>
+
+    <div id="status"></div>
+
+    <video id="video" controls autoplay style="display: none;"></video>
+    <!-- Hls.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <!-- Crypto JS for Stream Decryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    
+  <script>
+    const video = document.getElementById('video');
+    const statusDiv = document.getElementById('status');
+    const extractBtn = document.getElementById('extractAndPlay');
+    const tabs = document.querySelectorAll('.tab');
+    
+    let hls = null;
+    let activeServer = null;
+    let serverStreams = {};
+    
+    const ENCRYPTION_KEY = 'vidsrc_super_secret_key_12345678'; // Matches server.js
+
+    function decryptURL(encryptedData) {
+        try {
+            const parts = encryptedData.split(':');
+            const ivHex = parts[0];
+            const encryptedHex = parts[1];
+
+            const key = CryptoJS.enc.Utf8.parse(ENCRYPTION_KEY);
+            const iv = CryptoJS.enc.Hex.parse(ivHex);
+            const encryptedParams = CryptoJS.lib.CipherParams.create({
+                ciphertext: CryptoJS.enc.Hex.parse(encryptedHex)
+            });
+
+            const decrypted = CryptoJS.AES.decrypt(encryptedParams, key, {
+                iv: iv,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            });
+
+            return decrypted.toString(CryptoJS.enc.Utf8);
+        } catch (e) {
+            console.error("Decryption failed", e);
+            return null;
+        }
+    }
+
+    function destroyPlayer() {
+      if(hls) {
+        hls.destroy();
+        hls = null;
+      }
+      video.removeAttribute('src');
+      video.load();
+      video.style.display = 'none';
+    }
+
+    function switchServer(server) {
+      if (serverStreams[server]) playStream(server, serverStreams[server]);
+    }
+
+    function playStream(server, streamData) {
+      if (activeServer === server) return;
+      activeServer = server;
+      
+      // Update UI Tabs
+      tabs.forEach(t => t.classList.remove('active'));
+      document.getElementById(`tab-${server}`).classList.add('active');
+      statusDiv.textContent = `Now playing: ${server}`;
+
+      destroyPlayer();
+      
+      // Clear existing tracks
+      while (video.firstChild) {
+        video.removeChild(video.firstChild);
+      }
+
+      // DO NOT display the video yet to avoid the black buffering screen
+      // video.style.display = 'block';
+      
+      video.onloadeddata = () => {
+         video.style.display = 'block';
+      };
+      
+      let streamUrl = streamData.streamUrl;
+      if (streamData.encryptedStream) {
+          streamUrl = decryptURL(streamData.encryptedStream);
+      }
+      const proxyUrl = "/proxy?url=" + encodeURIComponent(streamUrl) + "&server=" + server;
+      
+      if (streamData.subtitleUrl) {
+        const track = document.createElement('track');
+        track.kind = 'captions';
+        track.label = 'Subtitles';
+        track.srclang = 'en'; // Defaults to English or whatever was selected
+        track.src = streamData.subtitleUrl;
+        track.default = true;
+        video.appendChild(track);
+      }
+      
+      if (streamUrl.includes('.mp4')) {
+         video.src = proxyUrl;
+         video.play();
+      } else if (Hls.isSupported()){
+        hls = new Hls();
+        hls.loadSource(proxyUrl);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')){
+        video.src = proxyUrl;
+        video.play();
+      }
+    }
+
+    const mediaTypeSelect = document.getElementById('mediaType');
+    const tvInputs = document.getElementById('tvInputs');
+    
+    mediaTypeSelect.addEventListener('change', () => {
+      if (mediaTypeSelect.value === 'tv') {
+        tvInputs.style.display = 'flex';
+      } else {
+        tvInputs.style.display = 'none';
+      }
+    });
+
+    extractBtn.addEventListener('click', async () => {
+      const tmdbId = document.getElementById('tmdbId').value.trim();
+      const type = mediaTypeSelect.value;
+      const season = document.getElementById('season').value.trim() || '1';
+      const episode = document.getElementById('episode').value.trim() || '1';
+      
+      // Get advanced parameters
+      const advServer = document.getElementById('advServer').value;
+      const advLang = document.getElementById('advLang').value;
+      const advSub = document.getElementById('advSub').value;
+      const advOneServer = document.getElementById('advOneServer').checked;
+      
+      if (!tmdbId) {
+        alert("Please enter a TMDB ID first!");
+        return;
+      }
+
+      extractBtn.disabled = true;
+      activeServer = null;
+      serverStreams = {};
+      
+      tabs.forEach(t => {
+        t.className = 'tab loading';
+        t.textContent = t.textContent.split(': ')[0] + ' (⏳ Fetching...)';
+      });
+      statusDiv.textContent = "Fetching all servers simultaneously...";
+
+      const servers = ['vidsrc', 'nhdapi', 'vidlink', 'nxsha', 'fmovies'];
+      
+      servers.forEach(server => {
+        let apiUrl = `/api/extract?tmdbId=${tmdbId}&server=${server}&nocache=true`;
+        if (type === 'tv') {
+          apiUrl += `&type=tv&s=${season}&e=${episode}`;
+        }
+        
+        if (server === 'nxsha') {
+          if (advServer) apiUrl += `&advServer=${advServer}`;
+          if (advLang) apiUrl += `&advLang=${advLang}`;
+          if (advSub) apiUrl += `&advSub=${advSub}`;
+          if (advOneServer) apiUrl += `&advOneServer=true`;
+        }
+        
+        fetch(apiUrl)
+          .then(res => res.json().then(data => ({ status: res.status, ok: res.ok, data })))
+          .then(({ ok, data }) => {
+            const tab = document.getElementById(`tab-${server}`);
+            if (ok && (data.streamUrl || data.iframeUrl || data.encryptedStream)) {
+              serverStreams[server] = data;
+              tab.className = 'tab ready';
+              tab.textContent = tab.textContent.split(' ')[0] + ' ' + tab.textContent.split(' ')[1] + ' (✅ Ready)';
+              
+              // If nothing is playing yet, play the first one that succeeds!
+              if (!activeServer) {
+                 playStream(server, data);
+              }
+            } else {
+              tab.className = 'tab failed';
+              tab.textContent = tab.textContent.split(' ')[0] + ' ' + tab.textContent.split(' ')[1] + ' (❌ Failed)';
+            }
+          })
+          .catch(err => {
+            const tab = document.getElementById(`tab-${server}`);
+            tab.className = 'tab failed';
+            tab.textContent = tab.textContent.split(' ')[0] + ' ' + tab.textContent.split(' ')[1] + ' (❌ Error)';
+          });
+      });
+
+      // Re-enable button after a short delay so user isn't locked out forever
+      setTimeout(() => extractBtn.disabled = false, 2000);
+    });
+  </script>
+</body>
+</html>
