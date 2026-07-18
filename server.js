@@ -3,9 +3,14 @@ import cors from 'cors';
 import { exec, spawn } from 'child_process';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.API_KEY || 'vidsrc-secure-key-2026';
 
 // Security: CORS
 const allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
@@ -26,6 +31,31 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 app.use('/api/', apiLimiter);
+
+// Security: Helmet HTTP Headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https:"],
+      mediaSrc: ["'self'", "https:", "blob:"],
+    }
+  },
+  crossOriginEmbedderPolicy: false // Allow cross-origin media
+}));
+
+// Security: API Key Firewall Middleware
+function requireApiKey(req, res, next) {
+  const providedKey = req.headers['x-api-key'] || req.query.apiKey;
+  if (!providedKey || providedKey !== API_KEY) {
+    console.warn(`[SECURITY] Blocked unauthorized access attempt from IP: ${req.ip}`);
+    return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
+  }
+  next();
+}
 
 // Security: Encryption
 const ENCRYPTION_KEY = 'vidsrc_super_secret_key_12345678';
@@ -53,7 +83,7 @@ function cleanCache() {
   }
 }
 
-app.get('/api/extract', async (req, res) => {
+app.get('/api/extract', requireApiKey, async (req, res) => {
   // 4. Anti-Hotlinking: Strict Referer Check
   const referer = req.headers.referer || req.headers.origin;
   if (!referer || (!referer.includes('localhost:3000') && !referer.includes('127.0.0.1:3000'))) {
@@ -66,6 +96,13 @@ app.get('/api/extract', async (req, res) => {
   const type = req.query.type || 'movie';
   const s = req.query.s || '1';
   const e = req.query.e || '1';
+
+  // Input Sanitization
+  if (!/^\d+$/.test(tmdbId)) return res.status(400).json({ error: 'Invalid tmdbId format' });
+  if (!/^\d+$/.test(s)) return res.status(400).json({ error: 'Invalid season format' });
+  if (!/^\d+$/.test(e)) return res.status(400).json({ error: 'Invalid episode format' });
+  if (type !== 'movie' && type !== 'tv') return res.status(400).json({ error: 'Invalid type' });
+  if (typeof server !== 'string' || server.length > 20) return res.status(400).json({ error: 'Invalid server' });
 
   if (!tmdbId || !server) {
     return res.status(400).json({error: 'Missing tmdbId or server parameter'});
@@ -99,9 +136,8 @@ app.get('/api/extract', async (req, res) => {
   }
 });
 
-app.get('/proxy', async (req, res) => {
+app.get('/proxy', requireApiKey, async (req, res) => {
   let url = req.query.url;
-  console.log('[PROXY REQUEST]', url);
   if(!url) return res.status(400).send('missing url');
   if (url.startsWith('http%3A') || url.startsWith('https%3A')) {
     url = decodeURIComponent(url);
@@ -158,9 +194,19 @@ app.get('/proxy', async (req, res) => {
       if (hostname.includes('vodvidl.site') || hostname.includes('stormvv')) {
         referer = 'https://vidlink.pro/';
         origin = 'https://vidlink.pro';
+      } else if (hostname.includes('1shows.app')) {
+        // Cinema's HLS CDN checks that playlist and segment requests originate
+        // from Cinema. The default NHD API referer is rejected with HTTP 403.
+        referer = 'https://cinema.bz/';
+        origin = 'https://cinema.bz';
       } else if (hostname.includes('workers.dev')) {
-        referer = 'https://nxsha.space/';
-        origin = 'https://nxsha.space';
+        if (req.query.server === 'cinema') {
+          referer = 'https://cinema.bz/';
+          origin = 'https://cinema.bz';
+        } else {
+          referer = 'https://nxsha.space/';
+          origin = 'https://nxsha.space';
+        }
       } else if (hostname.includes('hakunaymatata.com')) {
         referer = '';
         origin = '';
@@ -180,12 +226,12 @@ app.get('/proxy', async (req, res) => {
       // Cloudflare TLS-fingerprints Node.js and blocks it.
       // curl has a different TLS fingerprint that Cloudflare accepts.
       const curlArgs = ['-4', '-s', '-L', '-H', `User-Agent: ${fullUa}`, '-H', `Referer: ${referer}`];
+      if (origin) curlArgs.push('-H', `Origin: ${origin}`);
       if (req.headers.range) curlArgs.push('-H', `Range: ${req.headers.range}`);
       // Pass -i to get response headers, then we parse them
       curlArgs.push('-D', '-'); // dump headers to stdout before body
       curlArgs.push(url);
       
-      console.log('Spawning curl with args:', curlArgs);
       const curl = spawn('curl.exe', curlArgs);
       let headersDone = false;
       let headerBuf = Buffer.alloc(0);
@@ -247,6 +293,7 @@ app.get('/proxy', async (req, res) => {
             const rewritten = text.replace(/https?:\/\/[^\s\'\"]+/g, m => {
               let proxyUrl = '/proxy?url=' + encodeURIComponent(m);
               if (parsedHeadersParam) proxyUrl += '&headers=' + encodeURIComponent(parsedHeadersParam);
+              if (req.query.server) proxyUrl += '&server=' + encodeURIComponent(req.query.server);
               return proxyUrl;
             });
             res.send(rewritten);
@@ -296,6 +343,7 @@ app.get('/proxy', async (req, res) => {
             const rewritten = text.replace(/https?:\/\/[^\s\'\"]+/g, m => {
               let proxyUrl = '/proxy?url=' + encodeURIComponent(m);
               if (parsedHeadersParam) proxyUrl += '&headers=' + encodeURIComponent(parsedHeadersParam);
+              if (req.query.server) proxyUrl += '&server=' + encodeURIComponent(req.query.server);
               return proxyUrl;
             });
             res.send(rewritten);

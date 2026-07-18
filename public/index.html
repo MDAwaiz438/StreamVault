@@ -80,7 +80,7 @@
 
     <div id="tabs" class="tabs">
       <div class="tab" id="tab-vidsrc" onclick="switchServer('vidsrc')" data-server="vidsrc">Server 1 (VidSrc) <span class="loader"></span></div>
-      <div class="tab" id="tab-vidsrc2" onclick="switchServer('vidsrc2')" data-server="vidsrc2">Server 2 (VidSrc SBS) <span class="loader"></span></div>
+      <div class="tab" id="tab-cinema" onclick="switchServer('cinema')" data-server="cinema">Server 2 (Cinema) <span class="loader"></span></div>
       <div class="tab" id="tab-vidlink" onclick="switchServer('vidlink')" data-server="vidlink">Server 3 (VidLink) <span class="loader"></span></div>
       <div class="tab" id="tab-nxsha" onclick="switchServer('nxsha')" data-server="nxsha">Server 4 (Nxsha) <span class="loader"></span></div>
       <div class="tab" id="tab-fmovies" onclick="switchServer('fmovies')" data-server="fmovies">Server 5 (Fmovies) <span class="loader"></span></div>
@@ -237,7 +237,7 @@
       });
       statusDiv.textContent = "Fetching all servers simultaneously...";
 
-      const servers = ['vidsrc', 'nhdapi', 'vidlink', 'nxsha', 'fmovies'];
+      const servers = ['vidsrc', 'cinema', 'vidlink', 'nxsha', 'fmovies'];
       
       servers.forEach(server => {
         let apiUrl = `/api/extract?tmdbId=${tmdbId}&server=${server}&nocache=true`;
@@ -252,7 +252,7 @@
           if (advOneServer) apiUrl += `&advOneServer=true`;
         }
         
-        fetch(apiUrl)
+        fetch(apiUrl, { headers: { 'x-api-key': 'vidsrc-secure-key-2026' } })
           .then(res => res.json().then(data => ({ status: res.status, ok: res.ok, data })))
           .then(({ ok, data }) => {
             const tab = document.getElementById(`tab-${server}`);

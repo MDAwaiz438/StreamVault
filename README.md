@@ -1,100 +1,100 @@
-# vidsrc-bypass
+# Local Stream Tester
 
-vidsrc-bypass is a TypeScript utility library for interacting with vidsrc and embed.su APIs. It provides functions to fetch video details, stream URLs, and perform other related operations.
+A local Express application for testing movie and TV playback through the configured provider extractors. The browser UI requests all enabled providers concurrently, plays the first successful result, and lets you switch to another ready provider.
+
+This is a local development tool. Provider availability, catalog coverage, and playback behavior can change without notice. Use it only with content and services you are authorized to access.
 
 ## Features
 
-- Fetch video details from embed.su
-- Get stream URLs from embed.su
-- Generate VRF (Verification) tokens for vidsrc.rip
-- Fetch video configurations from vidsrc.rip
-- Get stream URLs from vidsrc.rip
-- TypeScript support with type definitions
-- Get stream URLs from vidlink.pro
-- Get stream URLs and Manga from vidsrc.icu
+- Movie and TV episode lookup by TMDB ID
+- Concurrent extraction with provider status tabs
+- HLS playback through hls.js and native MP4 playback
+- Local proxy for media playlists, segments, and captions
+- Two-hour in-memory stream cache
+- Configurable Nxsha language, subtitle, and server options
 
-## Installation
+## Requirements
 
-To install the dependencies, run:
+- Node.js 18 or later
+- npm
+- Playwright Chromium, for the extractors that use browser automation
+
+## Install and run
 
 ```bash
 npm install
-```
-
-## Usage
-
-This library exports functions for both embed.su, vidsrc.rip and vidlink.pro. Here's a brief overview of the main functions:
-
-### embed.su
-
-```typescript
-import { getEmbedSuVideo, getEmbedSuStreamUrl } from 'vidsrc-bypass';
-
-// Get video details (TMDB ID)
-const movieDetails = await getEmbedSuVideo(310131);  // For movies
-const tvShowDetails = await getEmbedSuVideo(48891, 1, 1);  // For TV shows (series ID, season, episode)
-
-// Get stream URL
-const streamDetails = await getEmbedSuStreamUrl(movieDetails.servers[0].hash);
-```
-
-### vidsrc.rip
-
-```typescript
-
-import { getVidSrcRipVideo, getVidSrcRipStreamUrl, generateVRF } from 'vidsrc-bypass';
-
-// Get video configuration (TMDB/IMDB ID)
-const videoConfig = await getVidSrcRipVideo('872585');
-
-// Get stream URL
-const streamUrl = await getVidSrcRipStreamUrl('flixhq', '872585');
-```
-
-### vidlink.pro
-
-```typescript
-import { getVidLinkProVideo } from 'vidsrc-bypass';
-
-// For movies (TMDB ID, type)
-const movieVideo = await getVidLinkProVideo({ id: "786892", type: "movie" }); 
-// For TV shows (TMDB series ID, season, episode, type) 
-const tvShowVideo = await getVidLinkProVideo({ id: "48891", season: 1, episode: 1, type: "tv"});
-// For anime (MAL ID,episode, type, dub/sub, fallback)
-const animeVideo = getVidLinkProVideo({ id: "5", episode: 1, type: "anime", dub: true, fallback: true });
-``` 
-
-### nhdapi
-
-The `nhdapi` embed uses an encrypted payload that is decrypted by the browser to fetch `.m3u8` streams from `hydrastreaming.lat`.
-To extract and play these streams, you can use the Playwright extraction script to capture the network requests, or use the local Express proxy server to bypass CORS.
-
-```bash
-# Capture network requests for nhdapi
-node dist/playwright_extractor.js "https://nhdapi.com/embed/movie/799882"
-# Stream using proxy server
+npx playwright install chromium
 npm start
 ```
 
-### vidsrc.sbs
+Open [http://localhost:3000](http://localhost:3000) in a browser.
 
-The `vidsrc.sbs` embed obfuscates its URLs and relies on `1embed.cc` and `cinezo.live`. When the play button is clicked, it fetches the actual `.mp4` video links (hosted on `hakunaymatata.com`) through a Cloudflare Worker proxy. 
+To use a different port:
 
-Our extraction script simulates user interaction to bypass protections and capture these hidden streams:
-
-```bash
-# Extract streams from vidsrc.sbs
-node dist/playwright_extractor.js "https://vidsrc.sbs/embed/movie/799882" captures_vidsrcsbs_stealth.json
+```powershell
+$env:PORT = 3001
+npm start
 ```
 
-## Anti-Bot Protection & Stealth
+## Using the tester
 
-This repository includes a `playwright_extractor.ts` script equipped with `playwright-extra` and `puppeteer-extra-plugin-stealth` to bypass Cloudflare Turnstile and other bot protections. The script automatically simulates user clicks to trigger stream decryption in the browser.
+1. Select **Movie** or **TV Series**.
+2. Enter a TMDB ID. For TV, also enter season and episode numbers.
+3. Select **Fetch All Servers**.
+4. The first provider that returns a playable stream starts automatically. Select a green provider tab to switch streams.
 
-## License
+## Enabled providers
 
-This project is open source. However, please note that it is intended for educational purposes only. Ensure you comply with all relevant laws and terms of service when using this library.
+The UI currently requests these extractors:
 
-## Disclaimer
+| UI label | Extractor | Method |
+| --- | --- | --- |
+| Server 1 (VidSrc) | `src/extractors/vidsrc.js` | Browser-assisted capture |
+| Server 2 (Cinema) | `src/extractors/cinema.js` | Direct provider API with fallbacks |
+| Server 3 (VidLink) | `src/extractors/vidlink.js` | Browser-assisted capture |
+| Server 4 (Nxsha) | `src/extractors/nxsha.js` | Browser-assisted capture |
+| Server 5 (Fmovies) | `src/extractors/fmovies.js` | Direct API request |
 
-This project is not affiliated with, endorsed by, or connected to vidsrc, embed.su, nhdapi, 2embed or any related services. It is an independent tool created for educational purposes. Use responsibly and at your own risk.
+Additional extractors in `src/extractors/` are not currently displayed in the UI.
+
+## Project structure
+
+```text
+public/index.html             Browser UI and hls.js player
+server.js                     Express API, cache, encryption, and media proxy
+src/extractors/               Provider-specific extraction modules
+playwright_extractor.ts       Shared browser-assisted capture utility
+```
+
+## API
+
+### `GET /api/extract`
+
+Extracts a stream for a provider. Requests must originate from the local UI (`localhost:3000` or `127.0.0.1:3000`).
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `tmdbId` | Yes | TMDB movie or series ID |
+| `server` | Yes | Extractor name, such as `cinema` or `nxsha` |
+| `type` | No | `movie` (default) or `tv` |
+| `s` | TV only | Season number; defaults to `1` |
+| `e` | TV only | Episode number; defaults to `1` |
+| `nocache` | No | Set to `true` to bypass the in-memory cache |
+
+Nxsha also supports `advServer`, `advLang`, `advSub`, and `advOneServer`.
+
+Successful responses provide an `encryptedStream` value, which the local UI decrypts before requesting `/proxy`. Do not expose this endpoint or the proxy publicly: they are intended for local testing only.
+
+## Development
+
+Build the TypeScript utility:
+
+```bash
+npm run build
+```
+
+The application logs extractor and proxy failures to the terminal. When diagnosing a provider issue, test both the extraction response and the resulting playlist or media request; a returned URL alone does not guarantee that playback is available.
+
+## License and disclaimer
+
+This project is not affiliated with any external provider. You are responsible for complying with applicable laws, rights-holder requirements, and each service's terms of use.
