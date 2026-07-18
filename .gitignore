@@ -1,5 +1,9 @@
 node_modules/
 .env
 captures_*.json
+*_test.json
+*_test_final.json
+test_*.js
+test_*.cjs
 .DS_Store
 *.log

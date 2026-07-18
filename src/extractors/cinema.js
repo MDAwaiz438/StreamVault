@@ -71,7 +71,9 @@ export default {
         }),
       );
 
-      const result = attempts.find(({ status }) => status === 'fulfilled');
+      const fulfilled = attempts.filter(({ status }) => status === 'fulfilled');
+      // Prefer non-workers.dev URLs (more reliable) over workers.dev (often 521 for TV)
+      const result = fulfilled.find(({ value }) => !value.includes('workers.dev')) || fulfilled[0];
       
       console.log(`[cinema.bz] Attempts for ${tmdbId}:`, attempts.map(a => a.status === 'fulfilled' ? 'OK: ' + a.value : 'ERR: ' + a.reason));
 
