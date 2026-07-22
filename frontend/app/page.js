@@ -14,6 +14,8 @@ export default function PlayerPage() {
   const [season, setSeason] = useState('1');
   const [episode, setEpisode] = useState('1');
   
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  
   const [advServer, setAdvServer] = useState('');
   const [advLang, setAdvLang] = useState('');
   const [advSub, setAdvSub] = useState('');
@@ -150,8 +152,8 @@ export default function PlayerPage() {
     }
 
     let proxyUrl = streamData.encryptedStream 
-      ? `http://localhost:5000/api/play/${streamData.encryptedStream}`
-      : `http://localhost:5000/api/play/${streamData.streamUrl}`; // Fallback if not encrypted (should not happen for our sources)
+      ? `${BACKEND_URL}/api/play/${streamData.encryptedStream}`
+      : `${BACKEND_URL}/api/play/${streamData.streamUrl}`; // Fallback if not encrypted (should not happen for our sources)
       
     if (streamData.headers) {
       proxyUrl += "?headers=" + encodeURIComponent(JSON.stringify(streamData.headers));
@@ -227,7 +229,7 @@ export default function PlayerPage() {
   const fetchSingleServer = (serverId, forceAutoPlay = false) => {
     updateServerState(serverId, 'loading', '⏳ Fetching...');
 
-    let apiUrl = `/api/extract?tmdbId=${tmdbId}&server=${serverId}&nocache=true&apiKey=${apiKey}`;
+    let apiUrl = `${BACKEND_URL}/api/extract?tmdbId=${tmdbId}&server=${serverId}&nocache=true&apiKey=${apiKey}`;
     if (mediaType === 'tv') apiUrl += `&type=tv&s=${season}&e=${episode}`;
     if (serverId === 'nxsha') {
       if (advServer) apiUrl += `&advServer=${advServer}`;

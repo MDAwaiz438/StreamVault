@@ -10,6 +10,8 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
   const [status, setStatus] = useState('Initializing...');
   const [streams, setStreams] = useState([]);
   
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -83,8 +85,8 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
     }
 
     let proxyUrl = streamData.encryptedStream 
-      ? `http://localhost:5000/api/play/${streamData.encryptedStream}`
-      : `http://localhost:5000/api/play/${streamData.streamUrl}`; // Fallback if not encrypted (should not happen for our sources)
+      ? `${BACKEND_URL}/api/play/${streamData.encryptedStream}`
+      : `${BACKEND_URL}/api/play/${streamData.streamUrl}`; // Fallback if not encrypted (should not happen for our sources)
       
     if (streamData.headers) {
       proxyUrl += "?headers=" + encodeURIComponent(JSON.stringify(streamData.headers));
@@ -152,7 +154,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
     const fetchStreams = async () => {
       setStatus('⏳ Searching for streams...');
       try {
-        let apiUrl = `http://localhost:5000/api/v1/${mediaType}/${tmdbId}`;
+        let apiUrl = `${BACKEND_URL}/api/v1/${mediaType}/${tmdbId}`;
         if (mediaType === 'tv') apiUrl += `/${season}/${episode}`;
         apiUrl += `?apiKey=${apiKey}`;
 
