@@ -1,0 +1,22 @@
+{
+  "name": "vidsrc-backend",
+  "version": "1.0.0",
+  "description": "Backend API for vidsrc proxy and extraction",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.6.0",
+    "got-scraping": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
+  }
+}
