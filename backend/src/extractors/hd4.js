@@ -35,7 +35,13 @@ export default {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             });
 
-            const json = JSON.parse(response.text);
+            let json;
+            try {
+                json = JSON.parse(response.text);
+            } catch (e) {
+                console.error('[HD4] JSON Parse Error. Response was:', response.text.substring(0, 200));
+                return res.status(502).json({ error: 'Upstream blocked request (Cloudflare/IP Block)', details: response.text.substring(0, 100) });
+            }
 
             if (json.isEncrypted && json.data) {
                 const decrypted = decryptPeachify(json.data);
@@ -60,7 +66,7 @@ export default {
         } catch (error) {
             console.error('[EXTRACTION ERROR] Peachify:', error.message);
             if (!res.headersSent) {
-                res.status(500).json({ error: 'Peachify extraction failed' });
+                res.status(500).json({ error: 'Peachify extraction failed', details: error.message });
             }
         }
     }
