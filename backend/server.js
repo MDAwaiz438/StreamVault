@@ -307,10 +307,11 @@ app.get('/api/play/:token', async (req, res) => {
     } else if (hostname.includes('itsnitrox.tech')) {
       referer = 'https://nxsha.space/';
       origin = 'https://nxsha.space';
-  if (url.includes('hakunaymatata.com')) {
-    referer = '';
-    origin = '';
-  }
+    } else if (hostname.includes('hakunaymatata.com')) {
+      referer = '';
+      origin = '';
+    }
+  } catch (e) {}
 
   const fullUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36';
   
