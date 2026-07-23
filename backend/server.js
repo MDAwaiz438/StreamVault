@@ -307,20 +307,15 @@ app.get('/api/play/:token', async (req, res) => {
     } else if (hostname.includes('itsnitrox.tech')) {
       referer = 'https://nxsha.space/';
       origin = 'https://nxsha.space';
-    } else if (hostname.includes('hakunaymatata.com')) {
-      referer = '';
-      origin = '';
-    }
-  } catch (e) {}
-  
-  if (!referer && !url.includes('hakunaymatata.com')) referer = 'https://purstream.ch/';
-  if (!origin && !url.includes('hakunaymatata.com')) origin = 'https://purstream.ch';
-  
-  if (origin) origin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-  
+  if (url.includes('hakunaymatata.com')) {
+    referer = '';
+    origin = '';
+  }
+
   const fullUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.55 Safari/537.36';
   
-  const fetchHeaders = { 'User-Agent': fullUa, 'Referer': referer, ...headersObj };
+  const fetchHeaders = { 'User-Agent': fullUa, ...headersObj };
+  if (referer) fetchHeaders['Referer'] = referer;
   if (origin) fetchHeaders['Origin'] = origin;
   
   const rangeHeader = req.headers['range'];
