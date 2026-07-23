@@ -176,14 +176,24 @@ export default function PlayerPage() {
     // Playback logic
     const serverName = servers.find(s => s.id === serverId)?.name || serverId;
     
+    const initialUrl = streamData.streamUrl || proxyUrl;
+
     if (streamData.isMp4) {
-      video.src = proxyUrl;
+      video.src = initialUrl;
       video.play().catch(() => {});
-      video.onerror = () => setStatus(`❌ Failed to play ${serverName}`);
+      video.onerror = () => {
+        if (video.src !== proxyUrl && proxyUrl) {
+          console.warn(`[Player] Direct MP4 play failed for ${serverName}, trying proxy...`);
+          video.src = proxyUrl;
+          video.play().catch(() => {});
+        } else {
+          setStatus(`❌ Failed to play ${serverName}`);
+        }
+      };
     } else if (window.Hls && window.Hls.isSupported()) {
       const hls = new window.Hls();
       hlsRef.current = hls;
-      hls.loadSource(proxyUrl);
+      hls.loadSource(initialUrl);
       hls.attachMedia(video);
 
       hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
@@ -195,32 +205,39 @@ export default function PlayerPage() {
         setCurrentLevel(data.level);
       });
 
+      let retriedProxy = false;
       hls.on(window.Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
-          setStatus(`❌ Failed to play ${serverName}`);
-          if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-            if (data.details === 'manifestLoadError' && data.response && data.response.code >= 400) {
-              retryCounts.current[serverId] = (retryCounts.current[serverId] || 0) + 1;
-              if (retryCounts.current[serverId] <= 1) {
-                setStatus(`🔄 Link expired for ${serverName}. Refetching...`);
-                hls.destroy();
-                fetchSingleServer(serverId, true);
+          if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR && !retriedProxy && initialUrl !== proxyUrl && proxyUrl) {
+            retriedProxy = true;
+            console.warn(`[Player] Direct HLS play failed for ${serverName}, trying proxy...`);
+            hls.loadSource(proxyUrl);
+          } else {
+            setStatus(`❌ Failed to play ${serverName}`);
+            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+              if (data.details === 'manifestLoadError' && data.response && data.response.code >= 400) {
+                retryCounts.current[serverId] = (retryCounts.current[serverId] || 0) + 1;
+                if (retryCounts.current[serverId] <= 1) {
+                  setStatus(`🔄 Link expired for ${serverName}. Refetching...`);
+                  hls.destroy();
+                  fetchSingleServer(serverId, true);
+                } else {
+                  setStatus(`❌ ${serverName} upstream is down`);
+                  hls.destroy();
+                }
               } else {
-                setStatus(`❌ ${serverName} upstream is down`);
                 hls.destroy();
               }
+            } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+              hls.recoverMediaError();
             } else {
               hls.destroy();
             }
-          } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
-            hls.recoverMediaError();
-          } else {
-            hls.destroy();
           }
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = proxyUrl;
+      video.src = initialUrl;
       video.play().catch(() => {});
     }
   }, [apiKey, destroyPlayer, servers]);
