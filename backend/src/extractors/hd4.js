@@ -37,7 +37,7 @@ export default {
          }
          clearTimeout(fallback);
          cache.set(cacheKey, { url: bestStream, timestamp: Date.now() });
-         return res.json({ encryptedStream: encryptURL(bestStream), server, isMp4: bestStream.includes('.mp4') });
+         return res.json({ encryptedStream: encryptURL(bestStream), streamUrl: bestStream, server, isMp4: bestStream.includes('.mp4') });
       } else {
          return res.status(404).json({error: `Stream URL not found on ${server}`});
       }

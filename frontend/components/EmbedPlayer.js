@@ -108,7 +108,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
 
     // Playback logic
     if (streamData.isMp4) {
-      video.src = proxyUrl;
+      video.src = streamData.streamUrl || proxyUrl;
       video.play().catch(() => {});
       video.onerror = () => setStatus(`❌ Failed to play`);
     } else if (window.Hls && window.Hls.isSupported()) {
@@ -252,6 +252,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
           ref={videoRef} 
           className="w-full h-full object-contain"
           playsInline
+          referrerPolicy="no-referrer"
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onTimeUpdate={handleTimeUpdate}
