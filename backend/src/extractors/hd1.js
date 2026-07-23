@@ -1,5 +1,4 @@
-import { exec } from 'child_process';
-
+import { curlCffiFetch } from './curl_helper.js';
 export default {
   extract: async ({ tmdbId, type, s, e, req, res, cache, cacheKey, encryptURL, fallback, server }) => {
     const apiUrl = type === 'tv' 
@@ -9,16 +8,17 @@ export default {
     const fullUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     
     try {
-      const response = await fetch(apiUrl, {
-        headers: { 'User-Agent': fullUa }
+      const response = curlCffiFetch(apiUrl, {
+        'User-Agent': fullUa,
+        'Accept': 'application/json'
       });
       
-      if (!response.ok) {
+      if (response.status !== 200) {
         console.error("Vidnest API error:", response.status);
         return res.status(500).json({ error: "Failed to extract from fmovies" });
       }
       
-      const data = await response.json();
+      const data = JSON.parse(response.text);
       if (!data || !data.data || !data.encrypted) {
         return res.status(404).json({error: `Stream URL not found on fmovies`});
       }
