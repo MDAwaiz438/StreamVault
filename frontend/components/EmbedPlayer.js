@@ -110,7 +110,15 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
     if (streamData.isMp4) {
       video.src = streamData.streamUrl || proxyUrl;
       video.play().catch(() => {});
-      video.onerror = () => setStatus(`❌ Failed to play`);
+      video.onerror = () => {
+        if (video.src !== proxyUrl && proxyUrl) {
+          console.warn('[Player] Direct MP4 play failed, falling back to proxy URL');
+          video.src = proxyUrl;
+          video.play().catch(() => {});
+        } else {
+          setStatus(`❌ Failed to play`);
+        }
+      };
     } else if (window.Hls && window.Hls.isSupported()) {
       const hls = new window.Hls();
       hlsRef.current = hls;
@@ -127,18 +135,25 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
         setCurrentLevel(data.level);
       });
 
+      let retriedProxy = false;
       hls.on(window.Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
-          setStatus(`❌ Failed to play`);
-          switch (data.type) {
-            case window.Hls.ErrorTypes.NETWORK_ERROR:
-              break;
-            case window.Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError();
-              break;
-            default:
-              hls.destroy();
-              break;
+          if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR && !retriedProxy && streamData.streamUrl && proxyUrl) {
+            retriedProxy = true;
+            console.warn('[Player] Direct HLS play failed, falling back to proxy URL');
+            hls.loadSource(proxyUrl);
+          } else {
+            setStatus(`❌ Failed to play`);
+            switch (data.type) {
+              case window.Hls.ErrorTypes.NETWORK_ERROR:
+                break;
+              case window.Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                hls.destroy();
+                break;
+            }
           }
         }
       });
