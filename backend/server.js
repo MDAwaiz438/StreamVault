@@ -10,6 +10,7 @@ import hd3 from './src/extractors/hd3.js';
 import hd4 from './src/extractors/hd4.js';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
@@ -362,7 +363,9 @@ app.get('/api/play/:token', async (req, res) => {
       });
       const rewritten = text.replace(/https?:\/\/[^\s\'\"]+/g, m => {
         let encToken = encryptURL(m);
-        let proxyUrl = '/api/play/' + encToken;
+        // Ensure absolute URL so HLS.js requests the chunks from the backend, not the frontend domain
+        let proxyBase = `${req.protocol}://${req.get('host')}/api/play/`;
+        let proxyUrl = proxyBase + encToken;
         let queryParams = [];
         if (parsedHeadersParam) queryParams.push('headers=' + encodeURIComponent(parsedHeadersParam));
         if (req.query.server) queryParams.push('server=' + encodeURIComponent(req.query.server));
