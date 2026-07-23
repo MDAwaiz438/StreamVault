@@ -114,7 +114,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
     } else if (window.Hls && window.Hls.isSupported()) {
       const hls = new window.Hls();
       hlsRef.current = hls;
-      hls.loadSource(proxyUrl);
+      hls.loadSource(streamData.streamUrl || proxyUrl);
       hls.attachMedia(video);
 
       hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
@@ -143,7 +143,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = proxyUrl;
+      video.src = streamData.streamUrl || proxyUrl;
       video.play().catch(() => {});
       setStatus('');
     }

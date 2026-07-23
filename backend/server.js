@@ -213,7 +213,7 @@ async function extractUnified(req, res, type) {
         clearTimeout(fallbackTimer);
         responded = true;
         const cachedData = cache.get(cacheKey);
-        return resolve({ server, success: true, data: { encryptedStream: encryptURL(cachedData.url), cached: true, isMp4: cachedData.url.includes('.mp4') } });
+        return resolve({ server, success: true, data: { encryptedStream: encryptURL(cachedData.url), streamUrl: cachedData.url, cached: true, isMp4: cachedData.url.includes('.mp4') } });
       }
 
       const args = { tmdbId, type, s, e, req: { query: req.query }, res: mockRes, cache, cacheKey, encryptURL, fallback: fallbackTimer, server };
