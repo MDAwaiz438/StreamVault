@@ -22,6 +22,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
   const [showControls, setShowControls] = useState(true);
   const hideControlsTimeoutRef = useRef(null);
   
+  const [iframeUrl, setIframeUrl] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [settingsMenuState, setSettingsMenuState] = useState('main'); // 'main' | 'quality' | 'subtitles'
   const [levels, setLevels] = useState([]);
@@ -72,6 +73,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
     setCurrentLevel(-1);
     setActiveSubtitle(0);
     setSubtitles([]);
+    setIframeUrl(null);
   }, []);
 
   const playStream = useCallback((streamData) => {
@@ -79,6 +81,12 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
     const video = videoRef.current;
     if (!video) return;
     
+    if (streamData.isIframe) {
+      setIframeUrl(streamData.iframeUrl);
+      setStatus('');
+      return;
+    }
+
     if (!streamData.encryptedStream && !streamData.streamUrl) {
       setStatus('❌ Invalid stream data');
       return;
@@ -248,31 +256,43 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
         onMouseLeave={() => isPlaying && setShowControls(false)}
         className="relative w-full h-full bg-black overflow-hidden group"
       >
-        <video 
-          ref={videoRef} 
-          className="w-full h-full object-contain"
-          playsInline
-          referrerPolicy="no-referrer"
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onTimeUpdate={handleTimeUpdate}
-          onProgress={handleProgress}
-          onClick={togglePlay}
-        ></video>
+        {iframeUrl ? (
+          <iframe 
+            src={iframeUrl} 
+            className="w-full h-full border-0" 
+            allowFullScreen 
+            referrerPolicy="origin"
+          ></iframe>
+        ) : (
+          <>
+            <video 
+              ref={videoRef} 
+              className="w-full h-full object-contain"
+              playsInline
+              referrerPolicy="no-referrer"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onTimeUpdate={handleTimeUpdate}
+              onProgress={handleProgress}
+              onClick={togglePlay}
+            ></video>
 
-        {/* Big Center Play Button (JW Player Style) */}
-        {!isPlaying && streams.length > 0 && (
-          <button 
-            onClick={togglePlay}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-14 bg-black/60 hover:bg-black text-white rounded-lg flex items-center justify-center transition-colors duration-200 z-10 border border-white/20"
-          >
-            <Play className="w-10 h-10 ml-1" fill="currentColor" />
-          </button>
+            {/* Big Center Play Button (JW Player Style) */}
+            {!isPlaying && streams.length > 0 && (
+              <button 
+                onClick={togglePlay}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-14 bg-black/60 hover:bg-black text-white rounded-lg flex items-center justify-center transition-colors duration-200 z-10 border border-white/20"
+              >
+                <Play className="w-10 h-10 ml-1" fill="currentColor" />
+              </button>
+            )}
+          </>
         )}
 
         {/* Custom Controls Overlay */}
-        <div className={`absolute bottom-0 left-0 w-full flex flex-col transition-opacity duration-300 bg-gradient-to-t from-black/80 to-transparent
-          ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        {!iframeUrl && (
+          <div className={`absolute bottom-0 left-0 w-full flex flex-col transition-opacity duration-300 bg-gradient-to-t from-black/80 to-transparent
+            ${showControls ? 'opacity-100' : 'opacity-0'}`}>
           
           {/* Scrubber */}
           <div className="relative h-[4px] bg-white/20 w-full cursor-pointer group/scrubber hover:h-[6px] transition-all" onClick={handleSeek}>
@@ -423,6 +443,7 @@ export default function EmbedPlayer({ mediaType, tmdbId, season, episode }) {
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
